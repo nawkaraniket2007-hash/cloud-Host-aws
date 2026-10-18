@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}CloudHost &mdash; Ingest Document{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Ingestion Form -->
+    <div class="col-lg-7">
+        <div class="card border border-subtle shadow-xs rounded-3 bg-white">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fw-semibold text-dark mb-0">Secure Object Ingestion</h6>
+                        <span class="text-secondary small">Direct transfer to encrypted Amazon S3 bucket.</span>
+                    </div>
+                    <span class="badge bg-light text-secondary border fw-normal">Maximum {{ max_size_mb }} MB</span>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form id="upload-form" action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data">
+                    <!-- Dropzone -->
+                    <div class="upload-dropzone p-4 text-center rounded-2 border border-2 border-dashed bg-light mb-3" id="drop-zone">
+                        <i class="bi bi-cloud-arrow-up text-secondary fs-1 d-block mb-2"></i>
+                        <div class="fw-medium text-dark mb-1">Drag and drop file to ingest, or click to browse</div>
+                        <div class="text-secondary small mb-3">Cryptographically hashed and indexed in Amazon DynamoDB</div>
+                        
+                        <input type="file" name="file" id="file-input" class="d-none" required>
+                        <button type="button" class="btn btn-sm btn-outline-secondary px-3" onclick="document.getElementById('file-input').click();">
+                            <i class="bi bi-folder2-open me-1"></i> Select File
+                        </button>
+
+                        <div id="file-details" class="mt-3 d-none">
+                            <span class="badge bg-dark text-white py-2 px-3 fw-normal small">
+                                <i class="bi bi-file-earmark-check me-1"></i>
+                                <span id="selected-file-name">filename.txt</span>
+                                &bull; <span id="selected-file-size">0 KB</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Client validation error -->
+                    <div id="client-validation-error" class="alert alert-danger d-none py-2 px-3 small rounded-2" role="alert"></div>
+
+                    <!-- Description input -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label text-secondary small fw-medium">Document Description / Metadata Tag</label>
+                        <input type="text" class="form-control form-control-sm" id="description" name="description" placeholder="Optional identifier, notes, or classification tag" maxlength="500">
+                    </div>
+
+                    <!-- Technical Controls -->
+                    <div class="p-3 bg-light rounded-2 border mb-3 small text-secondary">
+                        <div class="fw-semibold text-dark mb-1">Security &amp; Processing Controls</div>
+                        <ul class="mb-0 ps-3">
+                            <li>Server-Side Encryption applied automatically via SSE-S3 (AES-256).</li>
+                            <li>UUID namespace generated per document to prevent path-traversal conflicts.</li>
+                            <li>S3 ObjectCreated event triggers AWS Lambda for SHA-256 integrity digest computation.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submit-btn" class="btn btn-dark w-100 py-2 fw-medium">
+                        <i class="bi bi-upload me-1"></i> Ingest Document &amp; Trigger Lambda Verification
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Guidelines -->
+    <div class="col-lg-5">
+        <!-- Permitted Formats -->
+        <div class="card border border-subtle shadow-xs rounded-3 mb-4 bg-white">
+            <div class="card-header bg-white border-bottom py-3">
+                <h6 class="fw-semibold text-dark mb-0">Permitted Formats</h6>
+            </div>
+            <div class="card-body p-3">
+                <div class="d-flex flex-wrap gap-1">
+                    {% for ext in allowed_extensions %}
+                        <span class="badge bg-light text-secondary border fw-normal">.{{ ext }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Uploads -->
+        <div class="card border border-subtle shadow-xs rounded-3 bg-white">
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                <h6 class="fw-semibold text-dark mb-0">Recent Ingestions</h6>
+                <a href="{{ url_for('dashboard') }}" class="small text-decoration-none">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush small">
+                    {% if recent_files %}
+                        {% for rf in recent_files %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+                                <div class="text-truncate me-2" style="max-width: 220px;">
+                                    <span class="fw-medium text-dark d-block text-truncate">{{ rf.name }}</span>
+                                    <span class="text-secondary small">{{ rf.uploaded_at }} &bull; {{ rf.size }}</span>
+                                </div>
+                                <span class="badge {% if rf.status == 'VERIFIED' %}bg-success-subtle text-success border border-success-subtle{% else %}bg-secondary-subtle text-secondary border{% endif %} fw-normal">
+                                    {{ rf.status }}
+                                </span>
+                            </li>
+                        {% endfor %}
+                    {% else %}
+                        <li class="list-group-item text-center text-secondary py-3">
+                            No recent documents
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

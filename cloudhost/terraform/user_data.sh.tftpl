@@ -1,0 +1,119 @@
+#!/bin/bash
+# ==============================================================================
+# CloudHost EC2 Bootstrap Script (Hardened Security Baseline)
+# ==============================================================================
+
+set -euo pipefail
+
+exec > >(tee -a /var/log/cloudhost-bootstrap.log) 2>&1
+echo "=== [$(date)] Starting CloudHost EC2 Provisioning ==="
+
+# 1. Update system packages
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y python3 python3-pip python3-venv nginx awscli curl
+
+# 2. Create application user and directory structure
+id -u cloudhost &>/dev/null || useradd -m -s /bin/bash cloudhost
+mkdir -p /opt/cloudhost /var/log/cloudhost
+chown -R cloudhost:cloudhost /opt/cloudhost /var/log/cloudhost
+
+# 3. Download application package from S3 using IAM Instance Profile
+echo "Fetching application archive from S3..."
+for i in {1..10}; do
+    aws s3 cp "s3://${s3_bucket_name}/deploy/app.tar.gz" /opt/cloudhost/app.tar.gz --region "${aws_region}" && break || {
+        echo "Retrying S3 download (attempt $i/10)..."
+        sleep 3
+    }
+done
+
+tar -xzf /opt/cloudhost/app.tar.gz -C /opt/cloudhost/
+rm -f /opt/cloudhost/app.tar.gz
+
+# 4. Create virtual environment and install dependencies
+echo "Setting up Python virtual environment..."
+python3 -m venv /opt/cloudhost/venv
+/opt/cloudhost/venv/bin/pip install --upgrade pip
+/opt/cloudhost/venv/bin/pip install -r /opt/cloudhost/requirements.txt
+
+# 5. Generate application environment file
+cat << ENV_EOF > /opt/cloudhost/.env
+AWS_REGION="${aws_region}"
+S3_BUCKET_NAME="${s3_bucket_name}"
+DYNAMODB_TABLE_NAME="${dynamodb_table_name}"
+LAMBDA_FUNCTION_NAME="${lambda_function_name}"
+SECRET_KEY="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32)"
+LOG_DIR="/var/log/cloudhost"
+ENV_EOF
+
+chmod 600 /opt/cloudhost/.env
+chown -R cloudhost:cloudhost /opt/cloudhost
+
+# 6. Configure Systemd Service for Gunicorn
+cat << 'SYSTEMD_EOF' > /etc/systemd/system/cloudhost.service
+[Unit]
+Description=CloudHost Flask Application (Gunicorn)
+After=network.target
+
+[Service]
+User=cloudhost
+Group=cloudhost
+WorkingDirectory=/opt/cloudhost
+EnvironmentFile=/opt/cloudhost/.env
+ExecStart=/opt/cloudhost/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:5000 \
+    --access-logfile /var/log/cloudhost/access.log \
+    --error-logfile /var/log/cloudhost/error.log \
+    app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD_EOF
+
+systemctl daemon-reload
+systemctl enable cloudhost.service
+systemctl restart cloudhost.service
+
+# 7. Configure Hardened Nginx Reverse Proxy
+cat << 'NGINX_EOF' > /etc/nginx/sites-available/cloudhost
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    server_tokens off;
+    client_max_body_size 12M;
+
+    # Security Headers
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 90;
+        proxy_connect_timeout 90;
+    }
+
+    location /static/ {
+        alias /opt/cloudhost/static/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+}
+NGINX_EOF
+
+rm -f /etc/nginx/sites-enabled/default
+ln -sf /etc/nginx/sites-available/cloudhost /etc/nginx/sites-enabled/cloudhost
+nginx -t
+systemctl restart nginx
+
+echo "=== [$(date)] CloudHost Provisioning Completed Successfully! ==="

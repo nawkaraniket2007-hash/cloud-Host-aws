@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}CloudHost &mdash; System Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h2 class="h4 fw-bold text-dark mb-1" style="letter-spacing: -0.3px;">System Dashboard</h2>
+        <p class="text-secondary small mb-0">Live status of cloud storage, database indexing, and asynchronous event processing.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ url_for('upload') }}" class="btn btn-dark btn-sm px-3 py-2 fw-medium">
+            <i class="bi bi-cloud-arrow-up me-1"></i> Ingest Document
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2" title="Refresh metrics">
+            <i class="bi bi-arrow-clockwise"></i>
+        </a>
+    </div>
+</div>
+
+<!-- Metrics Cards Row -->
+<div class="row g-3 mb-4">
+    <!-- Total Ingested Files -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border border-subtle shadow-xs rounded-3 h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-secondary small fw-medium text-uppercase" style="font-size: 0.7rem;">Ingested Documents</span>
+                    <i class="bi bi-file-earmark-text text-secondary"></i>
+                </div>
+                <div class="h3 fw-bold text-dark mb-1">{{ total_files }}</div>
+                <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">Persisted in S3 &amp; DynamoDB</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Consumed -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border border-subtle shadow-xs rounded-3 h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-secondary small fw-medium text-uppercase" style="font-size: 0.7rem;">Storage Footprint</span>
+                    <i class="bi bi-hdd text-secondary"></i>
+                </div>
+                <div class="h3 fw-bold text-dark mb-1">{{ total_storage }}</div>
+                <div class="text-secondary small text-truncate" style="font-size: 0.75rem;" title="{{ s3_bucket }}">
+                    Bucket: {{ s3_bucket }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DynamoDB State -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border border-subtle shadow-xs rounded-3 h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-secondary small fw-medium text-uppercase" style="font-size: 0.7rem;">Database Service</span>
+                    <i class="bi bi-database-check text-secondary"></i>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="status-indicator-dot {% if db_status == 'Connected' %}bg-success{% else %}bg-danger{% endif %}"></span>
+                    <span class="h5 fw-bold text-dark mb-0">{{ db_status }}</span>
+                </div>
+                <div class="text-secondary small text-truncate" style="font-size: 0.75rem;" title="{{ dynamodb_table }}">
+                    Table: {{ dynamodb_table }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lambda Event Processing -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border border-subtle shadow-xs rounded-3 h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-secondary small fw-medium text-uppercase" style="font-size: 0.7rem;">Lambda Integrity Processor</span>
+                    <i class="bi bi-lightning-charge text-secondary"></i>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="status-indicator-dot bg-success"></span>
+                    <span class="h5 fw-bold text-dark mb-0">Active</span>
+                </div>
+                <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">SHA-256 S3 Event Trigger</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ingested Files Table -->
+<div class="card border border-subtle shadow-xs rounded-3">
+    <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+        <div>
+            <h6 class="fw-semibold text-dark mb-0">Ingested Objects &amp; Integrity Verification</h6>
+            <span class="text-secondary small">Synchronized with Amazon DynamoDB and AWS Lambda integrity digests.</span>
+        </div>
+        <span class="badge bg-light text-secondary border fw-normal">{{ files|length }} Records</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                <thead class="table-light text-secondary text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.4px;">
+                    <tr>
+                        <th class="ps-4 py-2">Document Details</th>
+                        <th class="py-2">Size</th>
+                        <th class="py-2">Ingestion Time</th>
+                        <th class="py-2">Integrity Status</th>
+                        <th class="py-2">SHA-256 Digest</th>
+                        <th class="text-end pe-4 py-2">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if files %}
+                        {% for f in files %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-file-earmark-text text-secondary fs-5"></i>
+                                        <div>
+                                            <span class="fw-semibold text-dark d-block">{{ f.name }}</span>
+                                            {% if f.description %}
+                                                <span class="text-secondary small">{{ f.description }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-light text-dark border fw-normal">{{ f.size }}</span></td>
+                                <td class="text-secondary font-monospace small">{{ f.uploaded_at }}</td>
+                                <td>
+                                    {% if f.processing_status == 'VERIFIED' %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle fw-medium px-2 py-1">
+                                            <i class="bi bi-check2-circle me-1"></i> Verified
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1">
+                                            <i class="bi bi-hourglass-split me-1"></i> Processing
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if f.sha256_hash and f.sha256_hash != 'Awaiting Lambda Execution' %}
+                                        <code class="font-monospace text-secondary small" title="{{ f.sha256_hash }}" style="font-size: 0.75rem;">
+                                            {{ f.sha256_hash[:16] }}...
+                                        </code>
+                                    {% else %}
+                                        <span class="text-secondary small italic font-monospace">Pending Lambda</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('download', file_id=f.id) }}" class="btn btn-outline-secondary btn-sm" title="Download via Presigned S3 URL">
+                                            <i class="bi bi-download me-1"></i> Presigned Link
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal{{ loop.index }}" title="Delete object">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Delete Modal -->
+                                    <div class="modal fade" id="deleteModal{{ loop.index }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content border shadow-sm">
+                                                <div class="modal-header py-2 border-bottom">
+                                                    <h6 class="modal-title fw-semibold text-danger">Confirm Deletion</h6>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body py-3 text-start">
+                                                    <p class="mb-1 text-dark">Delete document <strong>{{ f.name }}</strong>?</p>
+                                                    <p class="small text-secondary mb-0">This permanently purges the object from Amazon S3 and its record from Amazon DynamoDB.</p>
+                                                </div>
+                                                <div class="modal-footer py-2 border-top">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form action="{{ url_for('delete_file', file_id=f.id) }}" method="POST" class="d-inline">
+                                                        <button type="submit" class="btn btn-sm btn-danger">Confirm Delete</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-secondary">
+                                <i class="bi bi-inbox fs-2 text-secondary opacity-50 d-block mb-2"></i>
+                                <span class="fw-medium text-dark d-block">No documents indexed</span>
+                                <span class="small d-block mb-3">Ingest an object to test S3 storage, DynamoDB indexing, and AWS Lambda verification.</span>
+                                <a href="{{ url_for('upload') }}" class="btn btn-sm btn-dark">
+                                    <i class="bi bi-cloud-arrow-up me-1"></i> Ingest Document
+                                </a>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

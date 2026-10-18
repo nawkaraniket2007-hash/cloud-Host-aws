@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Error {{ code }} &mdash; CloudHost{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center my-5">
+    <div class="col-md-7 col-lg-5 text-center">
+        <div class="card border border-subtle shadow-xs rounded-3 p-4 bg-white">
+            <div class="card-body">
+                <div class="display-3 fw-bold text-secondary mb-2 font-monospace">{{ code }}</div>
+                <h5 class="fw-semibold text-dark mb-2">{{ title }}</h5>
+                <p class="text-secondary small mb-4">{{ message }}</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-dark btn-sm px-3">
+                        <i class="bi bi-house me-1"></i> Return Home
+                    </a>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm px-3">
+                        <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

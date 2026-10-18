@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}CloudHost &mdash; Infrastructure Overview{% endblock %}
+
+{% block content %}
+<!-- Minimalist Overview Banner -->
+<div class="card border border-subtle shadow-xs rounded-3 mb-4 bg-white">
+    <div class="card-body p-4 p-md-5">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <div class="d-inline-flex align-items-center gap-2 mb-3">
+                    <span class="badge rounded-pill bg-light text-dark border px-3 py-1 text-uppercase fw-semibold" style="letter-spacing: 0.5px; font-size: 0.72rem;">
+                        <i class="bi bi-shield-check text-success me-1"></i> Hardened Architecture
+                    </span>
+                    <span class="text-secondary small">&bull;</span>
+                    <span class="text-secondary small">VPC Isolated Compute & Serverless Services</span>
+                </div>
+                <h1 class="h2 fw-bold text-dark mb-2" style="letter-spacing: -0.5px;">CloudHost Portal</h1>
+                <p class="text-secondary mb-4" style="max-width: 620px; line-height: 1.6;">
+                    A production-conscious cloud portal provisioned via Terraform on Amazon Web Services. Incorporates compute hosting on Amazon EC2, serverless document indexing with Amazon DynamoDB, private object storage with Amazon S3, and asynchronous security processing with AWS Lambda.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('upload') }}" class="btn btn-dark btn-sm px-3 py-2 fw-medium">
+                        <i class="bi bi-cloud-arrow-up me-1"></i> Ingest Document
+                    </a>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 fw-medium">
+                        <i class="bi bi-speedometer2 me-1"></i> Open Dashboard
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-4 mt-4 mt-lg-0">
+                <div class="p-3 bg-light rounded-2 border">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-secondary small fw-medium text-uppercase" style="font-size: 0.7rem;">Compute Node</span>
+                        <span class="badge bg-secondary-subtle text-dark border small fw-normal">EC2 Instance</span>
+                    </div>
+                    <div class="font-monospace small text-dark mb-2 text-truncate" title="{{ server_info.hostname }}">{{ server_info.hostname }}</div>
+                    <div class="d-flex justify-content-between py-1 border-top small text-secondary">
+                        <span>Instance ID</span>
+                        <span class="font-monospace text-dark">{{ server_info.instance_id }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-top small text-secondary">
+                        <span>Availability Zone</span>
+                        <span class="font-monospace text-dark">{{ server_info.availability_zone }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-top small text-secondary">
+                        <span>Region</span>
+                        <span class="font-monospace text-dark">{{ server_info.region }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Architecture Service Grid -->
+<div class="row g-3 mb-4">
+    <!-- Compute Tier -->
+    <div class="col-md-6 col-xl-3">
+        <div class="card h-100 border border-subtle shadow-xs rounded-3">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Compute Tier</span>
+                    <i class="bi bi-cpu text-secondary"></i>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="status-indicator-dot bg-success"></span>
+                    <h6 class="fw-semibold text-dark mb-0">EC2 &amp; Nginx</h6>
+                </div>
+                <p class="text-secondary small mb-0">
+                    Ubuntu 22.04 LTS host with IMDSv2 token enforcement and systemd-managed Gunicorn workers.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Tier -->
+    <div class="col-md-6 col-xl-3">
+        <div class="card h-100 border border-subtle shadow-xs rounded-3">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Object Storage</span>
+                    <i class="bi bi-folder2 text-secondary"></i>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span id="s3-health-dot" class="status-indicator-dot bg-secondary"></span>
+                    <h6 class="fw-semibold text-dark mb-0" id="s3-health-label">Amazon S3</h6>
+                </div>
+                <p class="text-secondary small mb-0">
+                    Encrypted storage (SSE-S3 AES-256) with 100% Block Public Access and TLS-only transit policy.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Tier -->
+    <div class="col-md-6 col-xl-3">
+        <div class="card h-100 border border-subtle shadow-xs rounded-3">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">NoSQL Database</span>
+                    <i class="bi bi-database text-secondary"></i>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span id="db-health-dot" class="status-indicator-dot bg-secondary"></span>
+                    <h6 class="fw-semibold text-dark mb-0" id="db-health-label">Amazon DynamoDB</h6>
+                </div>
+                <p class="text-secondary small mb-0">
+                    Serverless on-demand table with single-digit millisecond latency and point-in-time state tracking.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Serverless Function Tier -->
+    <div class="col-md-6 col-xl-3">
+        <div class="card h-100 border border-subtle shadow-xs rounded-3">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Event Processing</span>
+                    <i class="bi bi-lightning-charge text-secondary"></i>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span id="lambda-health-dot" class="status-indicator-dot bg-secondary"></span>
+                    <h6 class="fw-semibold text-dark mb-0" id="lambda-health-label">AWS Lambda</h6>
+                </div>
+                <p class="text-secondary small mb-0">
+                    Asynchronous S3 event trigger calculating SHA-256 checksums and verifying content integrity.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Security Baseline Specification Card -->
+<div class="card border border-subtle shadow-xs rounded-3">
+    <div class="card-header bg-white border-bottom py-3">
+        <h6 class="fw-semibold text-dark mb-0 d-flex align-items-center gap-2">
+            <i class="bi bi-shield-check text-primary"></i>
+            <span>Infrastructure Security Parameters</span>
+        </h6>
+    </div>
+    <div class="card-body p-4">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="d-flex gap-3">
+                    <div class="security-spec-icon">
+                        <i class="bi bi-fingerprint"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-semibold text-dark mb-1">IMDSv2 Enforced Execution</h6>
+                        <p class="text-secondary small mb-0">
+                            Amazon EC2 instance metadata service mandates session tokens (hop limit = 2), mitigating SSRF (Server-Side Request Forgery) credential exfiltration vectors.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="d-flex gap-3">
+                    <div class="security-spec-icon">
+                        <i class="bi bi-lock"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-semibold text-dark mb-1">Data-at-Rest &amp; Data-in-Transit Encryption</h6>
+                        <p class="text-secondary small mb-0">
+                            Amazon S3 applies SSE-S3 AES-256 encryption at rest, paired with an explicit bucket policy that rejects any insecure (non-HTTPS) transmission.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="d-flex gap-3">
+                    <div class="security-spec-icon">
+                        <i class="bi bi-key"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-semibold text-dark mb-1">Zero Persistent Access Keys</h6>
+                        <p class="text-secondary small mb-0">
+                            No AWS access keys are embedded or configured in environment files. All AWS service calls utilize scoped IAM roles and instance profiles.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="d-flex gap-3">
+                    <div class="security-spec-icon">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-semibold text-dark mb-1">Ephemeral Presigned Access</h6>
+                        <p class="text-secondary small mb-0">
+                            S3 public read access is 100% disabled. Ingested files are accessible exclusively through cryptographic HMAC-signed Presigned URLs valid for 300 seconds.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
