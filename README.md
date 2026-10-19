@@ -1,8 +1,8 @@
 # CloudHost: AWS Web Hosting and File Storage Portal
 
 ### Live Deployment
-- **Website URL**: [http://184.195.187.216](http://184.195.187.216)
-- **Public DNS**: [http://ec2-184-195-187-216.compute-1.amazonaws.com](http://ec2-184-195-187-216.compute-1.amazonaws.com)
+- **Website URL**: [http://3.227.13.20](http://3.227.13.20)
+- **Public DNS**: [http://ec2-3-227-13-20.compute-1.amazonaws.com](http://ec2-3-227-13-20.compute-1.amazonaws.com)
 
 ### Quick Links
 - **Application Source**: [`cloudhost/app/`](./cloudhost/app/)
